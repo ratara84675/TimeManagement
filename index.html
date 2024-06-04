@@ -25,12 +25,16 @@
         .month-display {
             font-size: 1.5em;
             font-weight: bold;
+            text-align: center;
+            margin: 0 10px;
         }
         .calendar {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 5px;
             margin-bottom: 20px;
+            width: 100%;
+            overflow-x: auto;
         }
         .day, .header {
             padding: 10px;
@@ -38,6 +42,8 @@
             text-align: center;
             background-color: #333;
             border-radius: 5px;
+            cursor: pointer;
+            box-sizing: border-box;
         }
         .header {
             font-weight: bold;
@@ -48,17 +54,6 @@
         }
         .holiday {
             background-color: #ff4d4d;
-        }
-        input[type="number"] {
-            width: 100%;
-            box-sizing: border-box;
-            background-color: #444;
-            color: #eee;
-            border: 1px solid #666;
-            padding: 5px;
-        }
-        input[type="number"]:focus {
-            ime-mode: disabled;
         }
         .highlight {
             border: 2px solid yellow;
@@ -98,15 +93,113 @@
             margin-top: 20px;
             font-size: 1em;
         }
+        .controls-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+        .arrow-button {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #0066cc;
+            color: #ffffff;
+            text-align: center;
+            line-height: 30px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+        .arrow-button:hover {
+            background-color: #004d99;
+        }
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #333;
+            padding: 20px;
+            border: 1px solid #555;
+            border-radius: 10px;
+            z-index: 1000;
+            max-width: 90%;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .popup input[type="number"], .popup textarea {
+            width: 100%;
+            box-sizing: border-box;
+            background-color: #444;
+            color: #eee;
+            border: 1px solid #666;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        .popup textarea {
+            resize: none;
+        }
+        .popup-buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+        .popup-buttons button {
+            flex: 1;
+            margin: 0 5px;
+        }
         @media (max-width: 768px) {
             .controls, .results {
                 flex-direction: column;
             }
-            .month-display {
-                margin-bottom: 10px;
+            .controls-container {
+                flex-direction: row;
+                justify-content: space-between;
             }
-            button {
-                flex: 1;
+            .month-display {
+                margin: 0 5px;
+                font-size: 1.2em;
+            }
+            .arrow-button {
+                width: 25px;
+                height: 25px;
+                line-height: 25px;
+                font-size: 1em;
+            }
+            .buttons {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .buttons button {
+                width: 100%;
+                margin: 5px 0;
+            }
+            .calendar {
+                grid-template-columns: repeat(7, minmax(0, 1fr));
+                gap: 2px;
+                padding: 0;
+            }
+            .day, .header {
+                padding: 5px;
+                font-size: 0.8em;
+            }
+            .popup {
+                padding: 10px;
+                max-width: 90%;
+            }
+            .popup input[type="number"], .popup textarea {
+                padding: 3px;
+                font-size: 0.8em;
+            }
+            .popup-buttons button {
+                margin: 0 2px;
+            }
+            .day input {
+                width: 100%;
+                box-sizing: border-box;
+                font-size: 0.8em;
             }
         }
     </style>
@@ -119,10 +212,10 @@
         <div class="result">合計稼働時間: <span id="total-hours">0</span>時間</div>
         <div class="result">合計残業時間: <span id="total-overtime-hours">0</span>時間</div>
     </div>
-    <div class="controls">
-        <button onclick="changeMonth(-1)">先月</button>
+    <div class="controls-container">
+        <div class="arrow-button" onclick="changeMonth(-1)">&#9664;</div>
         <div class="month-display" id="month-display"></div>
-        <button onclick="changeMonth(1)">来月</button>
+        <div class="arrow-button" onclick="changeMonth(1)">&#9654;</div>
     </div>
     <div class="inputs">
         <div>
@@ -147,7 +240,7 @@
         </div>
     </div>
     <div class="buttons">
-        <button onclick="autoSetWorkHours()">稼働時間自動設定</button>
+        <button id="autoSetWorkHoursBtn">稼働時間自動設定</button>
         <button onclick="saveData()">保存</button>
         <button onclick="calculateRevenue()">計算</button>
     </div>
@@ -160,9 +253,22 @@
             <li><span style="border: 2px solid white; padding: 2px;">白枠</span>: 未入力または0時間の場合、休日出勤した場合</li>
         </ul>
     </div>
+
+    <div id="popup" class="popup">
+        <h3>稼働時間とメモ</h3>
+        <input type="number" id="popup-hours" placeholder="稼働時間 (時間)" min="0" step="0.1">
+        <textarea id="popup-note" placeholder="メモ" rows="4"></textarea>
+        <div class="popup-buttons">
+            <button onclick="savePopupData()">保存</button>
+            <button onclick="deletePopupData()">削除</button>
+            <button onclick="closePopup()">キャンセル</button>
+        </div>
+    </div>
+
     <script>
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
+        let activeDay = null;
 
         const holidays = ["01-01", "02-11", "02-23", "03-21", "04-29", "05-03", "05-04", "05-05", "07-18", "08-11", "09-19", "09-23", "10-10", "11-03", "11-23", "12-23"]; // 日本の祝日 (例: "MM-DD")
 
@@ -234,8 +340,7 @@
             const calendar = document.getElementById('calendar');
             calendar.innerHTML = '';
 
-            const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-            document.getElementById('month-display').innerText = monthNames[currentMonth];
+            document.getElementById('month-display').innerText = `${currentYear}/${currentMonth + 1}`;
 
             const firstDay = new Date(currentYear, currentMonth, 1).getDay();
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -258,6 +363,7 @@
                 const date = new Date(currentYear, currentMonth, i);
                 const day = document.createElement('div');
                 day.className = 'day';
+                day.setAttribute('data-day', i);  // Set data attribute to identify the day
                 if (date.getDay() == 0 || date.getDay() == 6) {
                     day.classList.add('weekend');
                 }
@@ -271,11 +377,17 @@
                     const nextMondayString = ('0' + (nextMonday.getMonth() + 1)).slice(-2) + '-' + ('0' + nextMonday.getDate()).slice(-2);
                     holidays.push(nextMondayString);
                 }
-                day.innerHTML = `<div>${i}</div><input type="number" min="0" step="0.1" maxlength="2" oninput="handleWorkHourChange(this)" class="work-hour-input">`;
+                day.innerHTML = `<div>${i}</div><input type="number" min="0" step="0.1" maxlength="2" readonly class="work-hour-input" onclick="openPopup(${i})">`;
                 calendar.appendChild(day);
             }
 
             loadData();
+        }
+
+        function confirmAutoSetWorkHours() {
+            if (confirm("稼働時間を自動設定しますか？この操作は元に戻せません。")) {
+                autoSetWorkHours();
+            }
         }
 
         function autoSetWorkHours() {
@@ -359,6 +471,50 @@
             const salary = revenue * (coefficient / 100);
             document.getElementById('salary').innerText = salary.toFixed(0);
         }
+
+        function openPopup(day) {
+            activeDay = day;
+            const popup = document.getElementById('popup');
+            popup.style.display = 'block';
+            const input = document.querySelector(`.day[data-day="${day}"] input`);
+            const workHours = input ? input.value : 0;
+            document.getElementById('popup-hours').value = workHours;
+            const note = localStorage.getItem(`note_${currentYear}_${currentMonth}_${day}`) || '';
+            document.getElementById('popup-note').value = note;
+        }
+
+        function closePopup() {
+            const popup = document.getElementById('popup');
+            popup.style.display = 'none';
+        }
+
+        function savePopupData() {
+            const hours = parseFloat(document.getElementById('popup-hours').value) || 0;
+            const note = document.getElementById('popup-note').value;
+            const input = document.querySelector(`.day[data-day="${activeDay}"] input`);
+            if (input) {
+                input.value = hours;
+                localStorage.setItem(`workHour_${currentYear}_${currentMonth}_${activeDay}`, hours);
+                localStorage.setItem(`note_${currentYear}_${currentMonth}_${activeDay}`, note);
+                highlightInput(input);
+                closePopup();
+                autoSaveAndCalculate();
+            }
+        }
+
+        function deletePopupData() {
+            const input = document.querySelector(`.day[data-day="${activeDay}"] input`);
+            if (input) {
+                input.value = 0;
+                localStorage.removeItem(`workHour_${currentYear}_${currentMonth}_${activeDay}`);
+                localStorage.removeItem(`note_${currentYear}_${currentMonth}_${activeDay}`);
+                highlightInput(input);
+                closePopup();
+                autoSaveAndCalculate();
+            }
+        }
+
+        document.getElementById('autoSetWorkHoursBtn').addEventListener('click', confirmAutoSetWorkHours);
 
         window.onload = () => {
             renderCalendar();

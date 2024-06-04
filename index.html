@@ -55,9 +55,22 @@
             background-color: #444;
             color: #eee;
             border: 1px solid #666;
+            padding: 5px;
         }
         input[type="number"]:focus {
             ime-mode: disabled;
+        }
+        .highlight {
+            border: 2px solid yellow;
+        }
+        .overtime {
+            border: 2px solid red;
+        }
+        .not-enough {
+            border: 2px solid yellow;
+        }
+        .no-input {
+            border: 2px solid white;
         }
         .buttons {
             display: flex;
@@ -81,6 +94,10 @@
         .result {
             font-size: 1.2em;
         }
+        .legend {
+            margin-top: 20px;
+            font-size: 1em;
+        }
         @media (max-width: 768px) {
             .controls, .results {
                 flex-direction: column;
@@ -100,6 +117,7 @@
         <div class="result">月の売上 (円): <span id="monthly-revenue">0</span></div>
         <div class="result">給与 (円): <span id="salary">0</span></div>
         <div class="result">合計稼働時間: <span id="total-hours">0</span>時間</div>
+        <div class="result">合計残業時間: <span id="total-overtime-hours">0</span>時間</div>
     </div>
     <div class="controls">
         <button onclick="changeMonth(-1)">先月</button>
@@ -123,12 +141,25 @@
             <label for="coefficient">係数 (%):</label>
             <input type="number" id="coefficient" min="0" step="0.01" value="100" onchange="autoSaveAndCalculate()">
         </div>
+        <div>
+            <label for="daily-max-hours">1日の稼働時間の上限 (時間):</label>
+            <input type="number" id="daily-max-hours" min="0" step="0.1" value="0" onchange="autoSaveAndCalculate()">
+        </div>
     </div>
     <div class="buttons">
+        <button onclick="autoSetWorkHours()">稼働時間自動設定</button>
         <button onclick="saveData()">保存</button>
         <button onclick="calculateRevenue()">計算</button>
     </div>
     <div id="calendar" class="calendar"></div>
+    <div class="legend">
+        <p>説明:</p>
+        <ul>
+            <li><span style="border: 2px solid red; padding: 2px;">赤枠</span>: 1日の稼働時間を超えた場合</li>
+            <li><span style="border: 2px solid yellow; padding: 2px;">黄色枠</span>: 1日の稼働時間に満たない場合</li>
+            <li><span style="border: 2px solid white; padding: 2px;">白枠</span>: 未入力または0時間の場合、休日出勤した場合</li>
+        </ul>
+    </div>
     <script>
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
@@ -140,11 +171,13 @@
             const hourlyRate = document.getElementById('hourly-rate').value;
             const maxHours = document.getElementById('max-hours').value;
             const coefficient = document.getElementById('coefficient').value;
+            const dailyMaxHours = document.getElementById('daily-max-hours').value;
 
             localStorage.setItem('monthlyRate', monthlyRate);
             localStorage.setItem('hourlyRate', hourlyRate);
             localStorage.setItem('maxHours', maxHours);
             localStorage.setItem('coefficient', coefficient);
+            localStorage.setItem('dailyMaxHours', dailyMaxHours);
 
             const inputs = document.querySelectorAll('.day input[type="number"]');
             inputs.forEach((input, index) => {
@@ -166,16 +199,19 @@
             const hourlyRate = localStorage.getItem('hourlyRate');
             const maxHours = localStorage.getItem('maxHours');
             const coefficient = localStorage.getItem('coefficient');
+            const dailyMaxHours = localStorage.getItem('dailyMaxHours');
 
             if (monthlyRate) document.getElementById('monthly-rate').value = monthlyRate;
             if (hourlyRate) document.getElementById('hourly-rate').value = hourlyRate;
             if (maxHours) document.getElementById('max-hours').value = maxHours;
             if (coefficient) document.getElementById('coefficient').value = coefficient;
+            if (dailyMaxHours) document.getElementById('daily-max-hours').value = dailyMaxHours;
 
             const inputs = document.querySelectorAll('.day input[type="number"]');
             inputs.forEach((input, index) => {
                 const workHour = localStorage.getItem('workHour_' + currentYear + '_' + currentMonth + '_' + index);
                 if (workHour) input.value = workHour;
+                highlightInput(input);
             });
 
             calculateTotal();
@@ -235,20 +271,73 @@
                     const nextMondayString = ('0' + (nextMonday.getMonth() + 1)).slice(-2) + '-' + ('0' + nextMonday.getDate()).slice(-2);
                     holidays.push(nextMondayString);
                 }
-                day.innerHTML = `<div>${i}</div><input type="number" min="0" step="0.1" onchange="autoSaveAndCalculate()">`;
+                day.innerHTML = `<div>${i}</div><input type="number" min="0" step="0.1" maxlength="2" oninput="handleWorkHourChange(this)" class="work-hour-input">`;
                 calendar.appendChild(day);
             }
 
             loadData();
         }
 
+        function autoSetWorkHours() {
+            const dailyMaxHours = parseFloat(document.getElementById('daily-max-hours').value) || 0;
+            const inputs = document.querySelectorAll('.day input[type="number"]');
+            inputs.forEach((input) => {
+                const parent = input.parentElement;
+                const isWeekendOrHoliday = parent.classList.contains('weekend') || parent.classList.contains('holiday');
+                if (!isWeekendOrHoliday) {
+                    input.value = dailyMaxHours;
+                }
+                highlightInput(input);
+            });
+            autoSaveAndCalculate();
+        }
+
+        function handleWorkHourChange(input) {
+            highlightInput(input);
+            autoSaveAndCalculate();
+        }
+
+        function highlightInput(input) {
+            const dailyMaxHours = parseFloat(document.getElementById('daily-max-hours').value) || 0;
+            const hours = parseFloat(input.value) || 0;
+            const parent = input.parentElement;
+            if (parent.classList.contains('weekend') || parent.classList.contains('holiday')) {
+                if (hours > 0) {
+                    parent.classList.add('no-input');
+                } else {
+                    parent.classList.remove('no-input', 'overtime', 'not-enough');
+                }
+            } else {
+                if (hours > dailyMaxHours) {
+                    parent.classList.remove('not-enough', 'no-input');
+                    parent.classList.add('overtime');
+                } else if (hours < dailyMaxHours && hours > 0) {
+                    parent.classList.remove('overtime', 'no-input');
+                    parent.classList.add('not-enough');
+                } else if (hours === 0) {
+                    parent.classList.remove('overtime', 'not-enough');
+                    parent.classList.add('no-input');
+                } else {
+                    parent.classList.remove('overtime', 'not-enough', 'no-input');
+                }
+            }
+        }
+
         function calculateTotal() {
             let total = 0;
+            let totalOvertime = 0;
+            const dailyMaxHours = parseFloat(document.getElementById('daily-max-hours').value) || 0;
             const inputs = document.querySelectorAll('.day input[type="number"]');
             inputs.forEach(input => {
-                total += parseFloat(input.value) || 0;
+                const hours = parseFloat(input.value) || 0;
+                total += hours;
+                if (hours > dailyMaxHours) {
+                    totalOvertime += (hours - dailyMaxHours);
+                }
+                highlightInput(input);
             });
             document.getElementById('total-hours').innerText = total.toFixed(1);
+            document.getElementById('total-overtime-hours').innerText = totalOvertime.toFixed(1);
         }
 
         function calculateRevenue() {

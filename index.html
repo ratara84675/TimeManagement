@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>稼働時間管理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #222;
+            color: #eee;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .results, .controls, .inputs {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .month-display {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        .day, .header {
+            padding: 10px;
+            border: 1px solid #444;
+            text-align: center;
+            background-color: #333;
+            border-radius: 5px;
+        }
+        .header {
+            font-weight: bold;
+            background-color: #555;
+        }
+        .weekend {
+            background-color: #444;
+        }
+        .holiday {
+            background-color: #ff4d4d;
+        }
+        input[type="number"] {
+            width: 100%;
+            box-sizing: border-box;
+            background-color: #444;
+            color: #eee;
+            border: 1px solid #666;
+        }
+        input[type="number"]:focus {
+            ime-mode: disabled;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 5px 10px;
+            font-size: 1em;
+            border: none;
+            background-color: #0066cc;
+            color: #ffffff;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #004d99;
+        }
+        .result {
+            font-size: 1.2em;
+        }
+        @media (max-width: 768px) {
+            .controls, .results {
+                flex-direction: column;
+            }
+            .month-display {
+                margin-bottom: 10px;
+            }
+            button {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>稼働時間管理</h1>
+    <div class="results">
+        <div class="result">月の売上 (円): <span id="monthly-revenue">0</span></div>
+        <div class="result">給与 (円): <span id="salary">0</span></div>
+        <div class="result">合計稼働時間: <span id="total-hours">0</span>時間</div>
+    </div>
+    <div class="controls">
+        <button onclick="changeMonth(-1)">先月</button>
+        <div class="month-display" id="month-display"></div>
+        <button onclick="changeMonth(1)">来月</button>
+    </div>
+    <div class="inputs">
+        <div>
+            <label for="monthly-rate">月単価 (円):</label>
+            <input type="number" id="monthly-rate" min="0" step="1000" value="0" onchange="autoSaveAndCalculate()">
+        </div>
+        <div>
+            <label for="hourly-rate">時給 (円):</label>
+            <input type="number" id="hourly-rate" min="0" step="100" value="0" onchange="autoSaveAndCalculate()">
+        </div>
+        <div>
+            <label for="max-hours">月の稼働時間の上限 (時間):</label>
+            <input type="number" id="max-hours" min="0" step="1" value="0" onchange="autoSaveAndCalculate()">
+        </div>
+        <div>
+            <label for="coefficient">係数 (%):</label>
+            <input type="number" id="coefficient" min="0" step="0.01" value="100" onchange="autoSaveAndCalculate()">
+        </div>
+    </div>
+    <div class="buttons">
+        <button onclick="saveData()">保存</button>
+        <button onclick="calculateRevenue()">計算</button>
+    </div>
+    <div id="calendar" class="calendar"></div>
+    <script>
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth();
+
+        const holidays = ["01-01", "02-11", "02-23", "03-21", "04-29", "05-03", "05-04", "05-05", "07-18", "08-11", "09-19", "09-23", "10-10", "11-03", "11-23", "12-23"]; // 日本の祝日 (例: "MM-DD")
+
+        function saveData(showAlert = true) {
+            const monthlyRate = document.getElementById('monthly-rate').value;
+            const hourlyRate = document.getElementById('hourly-rate').value;
+            const maxHours = document.getElementById('max-hours').value;
+            const coefficient = document.getElementById('coefficient').value;
+
+            localStorage.setItem('monthlyRate', monthlyRate);
+            localStorage.setItem('hourlyRate', hourlyRate);
+            localStorage.setItem('maxHours', maxHours);
+            localStorage.setItem('coefficient', coefficient);
+
+            const inputs = document.querySelectorAll('.day input[type="number"]');
+            inputs.forEach((input, index) => {
+                localStorage.setItem('workHour_' + currentYear + '_' + currentMonth + '_' + index, input.value);
+            });
+
+            if (showAlert) {
+                alert('データが保存されました。');
+            }
+        }
+
+        function autoSaveAndCalculate() {
+            saveData(false);
+            calculateRevenue();
+        }
+
+        function loadData() {
+            const monthlyRate = localStorage.getItem('monthlyRate');
+            const hourlyRate = localStorage.getItem('hourlyRate');
+            const maxHours = localStorage.getItem('maxHours');
+            const coefficient = localStorage.getItem('coefficient');
+
+            if (monthlyRate) document.getElementById('monthly-rate').value = monthlyRate;
+            if (hourlyRate) document.getElementById('hourly-rate').value = hourlyRate;
+            if (maxHours) document.getElementById('max-hours').value = maxHours;
+            if (coefficient) document.getElementById('coefficient').value = coefficient;
+
+            const inputs = document.querySelectorAll('.day input[type="number"]');
+            inputs.forEach((input, index) => {
+                const workHour = localStorage.getItem('workHour_' + currentYear + '_' + currentMonth + '_' + index);
+                if (workHour) input.value = workHour;
+            });
+
+            calculateTotal();
+            calculateRevenue();
+        }
+
+        function changeMonth(offset) {
+            currentMonth += offset;
+            if (currentMonth > 11) {
+                currentYear++;
+                currentMonth = 0;
+            } else if (currentMonth < 0) {
+                currentYear--;
+                currentMonth = 11;
+            }
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const calendar = document.getElementById('calendar');
+            calendar.innerHTML = '';
+
+            const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+            document.getElementById('month-display').innerText = monthNames[currentMonth];
+
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+            const headerDays = ["日", "月", "火", "水", "木", "金", "土"];
+            headerDays.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'header';
+                header.innerText = day;
+                calendar.appendChild(header);
+            });
+
+            for (let i = 0; i < firstDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day';
+                calendar.appendChild(emptyCell);
+            }
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const date = new Date(currentYear, currentMonth, i);
+                const day = document.createElement('div');
+                day.className = 'day';
+                if (date.getDay() == 0 || date.getDay() == 6) {
+                    day.classList.add('weekend');
+                }
+                const dateString = ('0' + (currentMonth + 1)).slice(-2) + '-' + ('0' + i).slice(-2);
+                if (holidays.includes(dateString)) {
+                    day.classList.add('holiday');
+                }
+                // 振替休日対応
+                if (date.getDay() === 0 && holidays.includes(dateString)) {
+                    const nextMonday = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+                    const nextMondayString = ('0' + (nextMonday.getMonth() + 1)).slice(-2) + '-' + ('0' + nextMonday.getDate()).slice(-2);
+                    holidays.push(nextMondayString);
+                }
+                day.innerHTML = `<div>${i}</div><input type="number" min="0" step="0.1" onchange="autoSaveAndCalculate()">`;
+                calendar.appendChild(day);
+            }
+
+            loadData();
+        }
+
+        function calculateTotal() {
+            let total = 0;
+            const inputs = document.querySelectorAll('.day input[type="number"]');
+            inputs.forEach(input => {
+                total += parseFloat(input.value) || 0;
+            });
+            document.getElementById('total-hours').innerText = total.toFixed(1);
+        }
+
+        function calculateRevenue() {
+            calculateTotal();
+            const totalHours = parseFloat(document.getElementById('total-hours').innerText) || 0;
+            const monthlyRate = parseFloat(document.getElementById('monthly-rate').value) || 0;
+            const hourlyRate = parseFloat(document.getElementById('hourly-rate').value) || 0;
+            const maxHours = parseFloat(document.getElementById('max-hours').value) || 0;
+            const coefficient = parseFloat(document.getElementById('coefficient').value) || 0;
+
+            let revenue = monthlyRate;
+            if (totalHours > maxHours) {
+                const excessHours = totalHours - maxHours;
+                revenue += hourlyRate * excessHours;
+            }
+
+            document.getElementById('monthly-revenue').innerText = revenue.toFixed(0);
+
+            const salary = revenue * (coefficient / 100);
+            document.getElementById('salary').innerText = salary.toFixed(0);
+        }
+
+        window.onload = () => {
+            renderCalendar();
+        };
+    </script>
+</body>
+</html>

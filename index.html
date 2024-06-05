@@ -130,7 +130,7 @@
             width: 100%;
             box-sizing: border-box;
         }
-        .popup input[type="number"], .popup textarea {
+        .popup input[type="time"], .popup input[type="number"], .popup textarea {
             width: 100%;
             box-sizing: border-box;
             background-color: #444;
@@ -189,7 +189,7 @@
                 padding: 10px;
                 max-width: 90%;
             }
-            .popup input[type="number"], .popup textarea {
+            .popup input[type="time"], .popup input[type="number"], .popup textarea {
                 padding: 3px;
                 font-size: 0.8em;
             }
@@ -235,8 +235,16 @@
             <input type="number" id="coefficient" min="0" step="0.01" value="100" onchange="autoSaveAndCalculate()">
         </div>
         <div>
-            <label for="daily-max-hours">1日の稼働時間の上限 (時間):</label>
-            <input type="number" id="daily-max-hours" min="0" step="0.1" value="0" onchange="autoSaveAndCalculate()">
+            <label for="default-start-time">開始時間:</label>
+            <input type="time" id="default-start-time" onchange="autoSaveAndCalculate()">
+        </div>
+        <div>
+            <label for="default-end-time">終了時間:</label>
+            <input type="time" id="default-end-time" onchange="autoSaveAndCalculate()">
+        </div>
+        <div>
+            <label for="default-break-time">休憩時間(分):</label>
+            <input type="number" id="default-break-time" min="0" step="1" value="0" onchange="autoSaveAndCalculate()">
         </div>
     </div>
     <div class="buttons">
@@ -256,7 +264,12 @@
 
     <div id="popup" class="popup">
         <h3>稼働時間とメモ</h3>
-        <input type="number" id="popup-hours" placeholder="稼働時間 (時間)" min="0" step="0.1">
+        <label for="popup-start-time">開始時間</label>
+        <input type="time" id="popup-start-time">
+        <label for="popup-end-time">終了時間</label>
+        <input type="time" id="popup-end-time">
+        <label for="popup-break-time">休憩時間 (分)</label>
+        <input type="number" id="popup-break-time" placeholder="休憩時間 (分)" min="0" step="1">
         <textarea id="popup-note" placeholder="メモ" rows="4"></textarea>
         <div class="popup-buttons">
             <button onclick="savePopupData()">保存</button>
@@ -277,13 +290,17 @@
             const hourlyRate = document.getElementById('hourly-rate').value;
             const maxHours = document.getElementById('max-hours').value;
             const coefficient = document.getElementById('coefficient').value;
-            const dailyMaxHours = document.getElementById('daily-max-hours').value;
+            const defaultStartTime = document.getElementById('default-start-time').value;
+            const defaultEndTime = document.getElementById('default-end-time').value;
+            const defaultBreakTime = document.getElementById('default-break-time').value;
 
             localStorage.setItem('monthlyRate', monthlyRate);
             localStorage.setItem('hourlyRate', hourlyRate);
             localStorage.setItem('maxHours', maxHours);
             localStorage.setItem('coefficient', coefficient);
-            localStorage.setItem('dailyMaxHours', dailyMaxHours);
+            localStorage.setItem('defaultStartTime', defaultStartTime);
+            localStorage.setItem('defaultEndTime', defaultEndTime);
+            localStorage.setItem('defaultBreakTime', defaultBreakTime);
 
             const inputs = document.querySelectorAll('.day input[type="number"]');
             inputs.forEach((input, index) => {
@@ -297,7 +314,9 @@
 
         function autoSaveAndCalculate() {
             saveData(false);
-            calculateRevenue();
+            if (document.getElementById('daily-max-hours')) {
+                calculateRevenue();
+            }
         }
 
         function loadData() {
@@ -305,20 +324,26 @@
             const hourlyRate = localStorage.getItem('hourlyRate');
             const maxHours = localStorage.getItem('maxHours');
             const coefficient = localStorage.getItem('coefficient');
-            const dailyMaxHours = localStorage.getItem('dailyMaxHours');
+            const defaultStartTime = localStorage.getItem('defaultStartTime');
+            const defaultEndTime = localStorage.getItem('defaultEndTime');
+            const defaultBreakTime = localStorage.getItem('defaultBreakTime');
 
             if (monthlyRate) document.getElementById('monthly-rate').value = monthlyRate;
             if (hourlyRate) document.getElementById('hourly-rate').value = hourlyRate;
             if (maxHours) document.getElementById('max-hours').value = maxHours;
             if (coefficient) document.getElementById('coefficient').value = coefficient;
-            if (dailyMaxHours) document.getElementById('daily-max-hours').value = dailyMaxHours;
+            if (defaultStartTime) document.getElementById('default-start-time').value = defaultStartTime;
+            if (defaultEndTime) document.getElementById('default-end-time').value = defaultEndTime;
+            if (defaultBreakTime) document.getElementById('default-break-time').value = defaultBreakTime;
 
             const inputs = document.querySelectorAll('.day input[type="number"]');
             inputs.forEach((input, index) => {
                 const workHour = localStorage.getItem('workHour_' + currentYear + '_' + currentMonth + '_' + index);
                 if (workHour) input.value = workHour;
-                highlightInput(input);
+                if (input) highlightInput(input); // input が null でないことを確認してから highlightInput を呼び出す
             });
+
+
 
             calculateTotal();
             calculateRevenue();
@@ -391,18 +416,34 @@
         }
 
         function autoSetWorkHours() {
-            const dailyMaxHours = parseFloat(document.getElementById('daily-max-hours').value) || 0;
+            const defaultStartTime = document.getElementById('default-start-time').value;
+            const defaultEndTime = document.getElementById('default-end-time').value;
+            const defaultBreakTime = parseFloat(document.getElementById('default-break-time').value) || 0;
             const inputs = document.querySelectorAll('.day input[type="number"]');
-            inputs.forEach((input) => {
-                const parent = input.parentElement;
-                const isWeekendOrHoliday = parent.classList.contains('weekend') || parent.classList.contains('holiday');
-                if (!isWeekendOrHoliday) {
-                    input.value = dailyMaxHours;
-                }
-                highlightInput(input);
-            });
-            autoSaveAndCalculate();
+
+            if (defaultStartTime && defaultEndTime) {
+                const start = new Date(`1970-01-01T${defaultStartTime}:00`);
+                const end = new Date(`1970-01-01T${defaultEndTime}:00`);
+                const workHours = (end - start) / (1000 * 60 * 60) - (defaultBreakTime / 60);
+
+                inputs.forEach((input) => {
+                    const parent = input.parentElement;
+                    const isWeekendOrHoliday = parent.classList.contains('weekend') || parent.classList.contains('holiday');
+                    if (!isWeekendOrHoliday) {
+                        input.value = workHours.toFixed(1);
+                        localStorage.setItem(`workHour_${currentYear}_${currentMonth}_${parent.dataset.day}`, workHours.toFixed(1));
+                        localStorage.setItem(`startTime_${currentYear}_${currentMonth}_${parent.dataset.day}`, defaultStartTime);
+                        localStorage.setItem(`endTime_${currentYear}_${currentMonth}_${parent.dataset.day}`, defaultEndTime);
+                        localStorage.setItem(`breakTime_${currentYear}_${currentMonth}_${parent.dataset.day}`, defaultBreakTime);
+                    }
+                    highlightInput(input);
+                });
+                autoSaveAndCalculate();
+            }
         }
+
+
+
 
         function handleWorkHourChange(input) {
             highlightInput(input);
@@ -410,7 +451,14 @@
         }
 
         function highlightInput(input) {
-            const dailyMaxHours = parseFloat(document.getElementById('daily-max-hours').value) || 0;
+            if (!input) return; // 入力がnullの場合は処理を中止
+            const defaultStartTime = document.getElementById('default-start-time').value;
+            const defaultEndTime = document.getElementById('default-end-time').value;
+            const defaultBreakTime = parseFloat(document.getElementById('default-break-time').value) || 0;
+            const start = new Date(`1970-01-01T${defaultStartTime}:00`);
+            const end = new Date(`1970-01-01T${defaultEndTime}:00`);
+            const dailyMaxHours = (end - start) / (1000 * 60 * 60) - (defaultBreakTime / 60);
+
             const hours = parseFloat(input.value) || 0;
             const parent = input.parentElement;
             if (parent.classList.contains('weekend') || parent.classList.contains('holiday')) {
@@ -435,10 +483,19 @@
             }
         }
 
+
+
+
         function calculateTotal() {
             let total = 0;
             let totalOvertime = 0;
-            const dailyMaxHours = parseFloat(document.getElementById('daily-max-hours').value) || 0;
+            const defaultStartTime = document.getElementById('default-start-time').value;
+            const defaultEndTime = document.getElementById('default-end-time').value;
+            const defaultBreakTime = parseFloat(document.getElementById('default-break-time').value) || 0;
+            const start = new Date(`1970-01-01T${defaultStartTime}:00`);
+            const end = new Date(`1970-01-01T${defaultEndTime}:00`);
+            const dailyMaxHours = (end - start) / (1000 * 60 * 60) - (defaultBreakTime / 60);
+
             const inputs = document.querySelectorAll('.day input[type="number"]');
             inputs.forEach(input => {
                 const hours = parseFloat(input.value) || 0;
@@ -451,6 +508,8 @@
             document.getElementById('total-hours').innerText = total.toFixed(1);
             document.getElementById('total-overtime-hours').innerText = totalOvertime.toFixed(1);
         }
+
+
 
         function calculateRevenue() {
             calculateTotal();
@@ -478,10 +537,26 @@
             popup.style.display = 'block';
             const input = document.querySelector(`.day[data-day="${day}"] input`);
             const workHours = input ? input.value : 0;
-            document.getElementById('popup-hours').value = workHours;
             const note = localStorage.getItem(`note_${currentYear}_${currentMonth}_${day}`) || '';
-            document.getElementById('popup-note').value = note;
+            const startTime = localStorage.getItem(`startTime_${currentYear}_${currentMonth}_${day}`) || '';
+            const endTime = localStorage.getItem(`endTime_${currentYear}_${currentMonth}_${day}`) || '';
+            const breakTime = localStorage.getItem(`breakTime_${currentYear}_${currentMonth}_${day}`) || '';
+
+            const popupHoursElement = document.getElementById('popup-hours');
+            const popupNoteElement = document.getElementById('popup-note');
+            const popupStartTimeElement = document.getElementById('popup-start-time');
+            const popupEndTimeElement = document.getElementById('popup-end-time');
+            const popupBreakTimeElement = document.getElementById('popup-break-time');
+
+            if (popupHoursElement) popupHoursElement.value = workHours;
+            if (popupNoteElement) popupNoteElement.value = note;
+            if (popupStartTimeElement) popupStartTimeElement.value = startTime;
+            if (popupEndTimeElement) popupEndTimeElement.value = endTime;
+            if (popupBreakTimeElement) popupBreakTimeElement.value = breakTime;
         }
+
+
+
 
         function closePopup() {
             const popup = document.getElementById('popup');
@@ -489,18 +564,31 @@
         }
 
         function savePopupData() {
-            const hours = parseFloat(document.getElementById('popup-hours').value) || 0;
+            const startTime = document.getElementById('popup-start-time').value;
+            const endTime = document.getElementById('popup-end-time').value;
+            const breakTime = parseFloat(document.getElementById('popup-break-time').value) || 0;
             const note = document.getElementById('popup-note').value;
             const input = document.querySelector(`.day[data-day="${activeDay}"] input`);
-            if (input) {
-                input.value = hours;
-                localStorage.setItem(`workHour_${currentYear}_${currentMonth}_${activeDay}`, hours);
-                localStorage.setItem(`note_${currentYear}_${currentMonth}_${activeDay}`, note);
-                highlightInput(input);
-                closePopup();
-                autoSaveAndCalculate();
+
+            if (startTime && endTime) {
+                const start = new Date(`1970-01-01T${startTime}:00`);
+                const end = new Date(`1970-01-01T${endTime}:00`);
+                const workHours = (end - start) / (1000 * 60 * 60) - (breakTime / 60);
+
+                if (input) {
+                    input.value = workHours.toFixed(1);
+                    localStorage.setItem(`workHour_${currentYear}_${currentMonth}_${activeDay}`, workHours);
+                    localStorage.setItem(`note_${currentYear}_${currentMonth}_${activeDay}`, note);
+                    localStorage.setItem(`startTime_${currentYear}_${currentMonth}_${activeDay}`, startTime);
+                    localStorage.setItem(`endTime_${currentYear}_${currentMonth}_${activeDay}`, endTime);
+                    localStorage.setItem(`breakTime_${currentYear}_${currentMonth}_${activeDay}`, breakTime);
+                    highlightInput(input);
+                    closePopup();
+                    autoSaveAndCalculate();
+                }
             }
         }
+
 
         function deletePopupData() {
             const input = document.querySelector(`.day[data-day="${activeDay}"] input`);
@@ -508,6 +596,9 @@
                 input.value = 0;
                 localStorage.removeItem(`workHour_${currentYear}_${currentMonth}_${activeDay}`);
                 localStorage.removeItem(`note_${currentYear}_${currentMonth}_${activeDay}`);
+                localStorage.removeItem(`startTime_${currentYear}_${currentMonth}_${activeDay}`);
+                localStorage.removeItem(`endTime_${currentYear}_${currentMonth}_${activeDay}`);
+                localStorage.removeItem(`breakTime_${currentYear}_${currentMonth}_${activeDay}`);
                 highlightInput(input);
                 closePopup();
                 autoSaveAndCalculate();

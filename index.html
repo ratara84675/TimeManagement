@@ -151,57 +151,94 @@
             margin: 0 5px;
         }
         @media (max-width: 768px) {
-            .controls, .results {
-                flex-direction: column;
-            }
-            .controls-container {
-                flex-direction: row;
-                justify-content: space-between;
-            }
-            .month-display {
-                margin: 0 5px;
-                font-size: 1.2em;
-            }
-            .arrow-button {
-                width: 25px;
-                height: 25px;
-                line-height: 25px;
-                font-size: 1em;
-            }
-            .buttons {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .buttons button {
-                width: 100%;
-                margin: 5px 0;
-            }
-            .calendar {
-                grid-template-columns: repeat(7, minmax(0, 1fr));
-                gap: 2px;
-                padding: 0;
-            }
-            .day, .header {
-                padding: 5px;
-                font-size: 0.8em;
-            }
-            .popup {
-                padding: 10px;
-                max-width: 90%;
-            }
-            .popup input[type="time"], .popup input[type="number"], .popup textarea {
-                padding: 3px;
-                font-size: 0.8em;
-            }
-            .popup-buttons button {
-                margin: 0 2px;
-            }
-            .day input {
-                width: 100%;
-                box-sizing: border-box;
-                font-size: 0.8em;
-            }
+        .controls, .results {
+            flex-direction: column;
         }
+
+        .controls-container {
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        .month-display {
+            margin: 0 5px;
+            font-size: 1.2em;
+        }
+
+        .arrow-button {
+            width: 25px;
+            height: 25px;
+            line-height: 25px;
+            font-size: 1em;
+        }
+
+        .buttons {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .buttons button {
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .calendar {
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 2px;
+            padding: 0;
+        }
+
+        .day, .header {
+            padding: 5px;
+            font-size: 0.8em;
+        }
+
+        .popup {
+            padding: 10px;
+            max-width: 90%;
+        }
+
+        .popup input[type="time"], .popup input[type="number"], .popup textarea {
+            padding: 3px;
+            font-size: 0.8em;
+        }
+
+        .popup-buttons button {
+            margin: 0 2px;
+        }
+
+        .day input {
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 0.8em;
+        }
+
+        .inputs {
+            flex-direction: column;
+            align-items: flex-start; /* 追加: 左揃え */
+        }
+
+        .popup {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .popup label, .popup input[type="time"], .popup input[type="number"], .popup textarea {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+
+        .popup-buttons {
+            flex-direction: column;
+        }
+
+        .popup-buttons button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    }
+
     </style>
 </head>
 <body>
@@ -571,8 +608,14 @@
             const input = document.querySelector(`.day[data-day="${activeDay}"] input`);
 
             if (startTime && endTime) {
-                const start = new Date(`1970-01-01T${startTime}:00`);
-                const end = new Date(`1970-01-01T${endTime}:00`);
+                let start = new Date(`1970-01-01T${startTime}:00`);
+                let end = new Date(`1970-01-01T${endTime}:00`);
+
+                // If end time is earlier than start time, assume it's on the next day
+                if (end < start) {
+                    end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+                }
+
                 const workHours = (end - start) / (1000 * 60 * 60) - (breakTime / 60);
 
                 if (input) {
@@ -588,6 +631,7 @@
                 }
             }
         }
+
 
 
         function deletePopupData() {

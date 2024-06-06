@@ -291,35 +291,43 @@
 
 <body>
     <h1>稼働時間管理</h1>
-    <div class="results">
-        <div class="result">月の売上 (円): <span id="monthly-revenue">0</span></div>
-        <div class="result">給与 (円): <span id="salary">0</span></div>
-        <div class="result">合計稼働時間: <span id="total-hours">0</span>時間</div>
-        <div class="result">合計残業時間: <span id="total-overtime-hours">0</span>時間</div>
-        <div class="result">平均稼働時間: <span id="average-hours">0</span>時間</div>
-        <div class="result">今月の稼働時間見込み: <span id="estimated-hours">0</span>時間</div>
-    </div>
     <div class="controls-container">
         <div class="arrow-button" onclick="changeMonth(-1)">&#9664;</div>
         <div class="month-display" id="month-display"></div>
         <div class="arrow-button" onclick="changeMonth(1)">&#9654;</div>
+    </div><br>
+    <div class="results">
+        <div class="result">売上 (円): <span id="monthly-revenue">0</span></div>
+        <div class="result">給与 (円): <span id="salary">0</span></div>
+        <div class="result">合計稼働時間: <span id="total-hours">0</span>時間</div>
+        <div class="result">合計残業時間: <span id="total-overtime-hours">0</span>時間</div>
+        <div class="result">平均稼働時間: <span id="average-hours">0</span>時間</div>
+        <br>
+    
+        <div class="result">合計稼働時間見込み: <span id="estimated-hours">0</span>時間</div>
+        <div class="result">売上見込み (円): <span id="estimated-revenue">0</span></div>
+        <div class="result">給与見込み (円): <span id="estimated-salary">0</span></div>
     </div>
     <div class="inputs">
         <div>
             <label for="monthly-rate">月単価 (円):</label>
-            <input type="number" id="monthly-rate" min="0" step="1000" value="0" onchange="autoSaveAndCalculate()"style="width: 30%;">
+            <input type="number" id="monthly-rate" min="0" step="1000" value="0" onchange="autoSaveAndCalculate()"
+                style="width: 30%;">
         </div>
         <div>
             <label for="hourly-rate">時給 (円):</label>
-            <input type="number" id="hourly-rate" min="0" step="100" value="0" onchange="autoSaveAndCalculate()"style="width: 30%;">
+            <input type="number" id="hourly-rate" min="0" step="100" value="0" onchange="autoSaveAndCalculate()"
+                style="width: 30%;">
         </div>
         <div>
             <label for="max-hours">月の稼働時間の上限 (時間):</label>
-            <input type="number" id="max-hours" min="0" step="1" value="0" onchange="autoSaveAndCalculate()"style="width: 30%;">
+            <input type="number" id="max-hours" min="0" step="1" value="0" onchange="autoSaveAndCalculate()"
+                style="width: 30%;">
         </div>
         <div>
             <label for="coefficient">係数 (%):</label>
-            <input type="number" id="coefficient" min="0" step="0.01" value="100" onchange="autoSaveAndCalculate()"style="width: 30%;">
+            <input type="number" id="coefficient" min="0" step="0.01" value="100" onchange="autoSaveAndCalculate()"
+                style="width: 30%;">
         </div>
         <div>
             <label for="default-start-time">開始時間:</label>
@@ -331,7 +339,8 @@
         </div>
         <div>
             <label for="default-break-time">休憩時間(分):</label>
-            <input type="number" id="default-break-time" min="0" step="1" value="0" onchange="autoSaveAndCalculate()"style="width: 30%;">
+            <input type="number" id="default-break-time" min="0" step="1" value="0" onchange="autoSaveAndCalculate()"
+                style="width: 30%;">
         </div>
     </div>
     <div class="buttons">
@@ -356,7 +365,7 @@
         <label for="popup-end-time">終了時間</label>
         <input type="time" id="popup-end-time"><br>
         <label for="popup-break-time">休憩時間 (分)</label>
-        <input type="number" id="popup-break-time" placeholder="休憩時間 (分)" min="0" step="1"style="width: 30%;"><br>
+        <input type="number" id="popup-break-time" placeholder="休憩時間 (分)" min="0" step="1" style="width: 30%;"><br>
         <textarea id="popup-note" placeholder="メモ" rows="4"></textarea><br>
         <div class="popup-buttons">
             <button onclick="savePopupData()">保存</button>
@@ -632,7 +641,27 @@
             document.getElementById('total-overtime-hours').innerText = totalOvertime.toFixed(1);
             document.getElementById('average-hours').innerText = averageHours.toFixed(1);
             document.getElementById('estimated-hours').innerText = estimatedHours.toFixed(1);
+
+            // 月の売上見込みの計算
+            const monthlyRate = parseFloat(document.getElementById('monthly-rate').value) || 0;
+            const hourlyRate = parseFloat(document.getElementById('hourly-rate').value) || 0;
+            const maxHours = parseFloat(document.getElementById('max-hours').value) || 0;
+            const coefficient = parseFloat(document.getElementById('coefficient').value) || 100;
+
+            let estimatedRevenue = monthlyRate;
+            if (estimatedHours > maxHours) {
+                const excessHours = estimatedHours - maxHours;
+                estimatedRevenue += hourlyRate * excessHours;
+            }
+
+            document.getElementById('estimated-revenue').innerText = estimatedRevenue.toFixed(0);
+
+            // 給与見込みの計算
+            const estimatedSalary = estimatedRevenue * (coefficient / 100);
+            document.getElementById('estimated-salary').innerText = estimatedSalary.toFixed(0);
         }
+
+
 
 
         function calculateRevenue() {

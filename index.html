@@ -281,6 +281,11 @@
                 margin-bottom: 10px;
             }
         }
+
+        .today {
+            font-weight: bold;
+            color: red;
+        }
     </style>
 </head>
 
@@ -291,6 +296,8 @@
         <div class="result">給与 (円): <span id="salary">0</span></div>
         <div class="result">合計稼働時間: <span id="total-hours">0</span>時間</div>
         <div class="result">合計残業時間: <span id="total-overtime-hours">0</span>時間</div>
+        <div class="result">平均稼働時間: <span id="average-hours">0</span>時間</div>
+        <div class="result">今月の稼働時間見込み: <span id="estimated-hours">0</span>時間</div>
     </div>
     <div class="controls-container">
         <div class="arrow-button" onclick="changeMonth(-1)">&#9664;</div>
@@ -300,31 +307,31 @@
     <div class="inputs">
         <div>
             <label for="monthly-rate">月単価 (円):</label>
-            <input type="number" id="monthly-rate" min="0" step="1000" value="0" onchange="autoSaveAndCalculate()">
+            <input type="number" id="monthly-rate" min="0" step="1000" value="0" onchange="autoSaveAndCalculate()"style="width: 30%;">
         </div>
         <div>
             <label for="hourly-rate">時給 (円):</label>
-            <input type="number" id="hourly-rate" min="0" step="100" value="0" onchange="autoSaveAndCalculate()">
+            <input type="number" id="hourly-rate" min="0" step="100" value="0" onchange="autoSaveAndCalculate()"style="width: 30%;">
         </div>
         <div>
             <label for="max-hours">月の稼働時間の上限 (時間):</label>
-            <input type="number" id="max-hours" min="0" step="1" value="0" onchange="autoSaveAndCalculate()">
+            <input type="number" id="max-hours" min="0" step="1" value="0" onchange="autoSaveAndCalculate()"style="width: 30%;">
         </div>
         <div>
             <label for="coefficient">係数 (%):</label>
-            <input type="number" id="coefficient" min="0" step="0.01" value="100" onchange="autoSaveAndCalculate()">
+            <input type="number" id="coefficient" min="0" step="0.01" value="100" onchange="autoSaveAndCalculate()"style="width: 30%;">
         </div>
         <div>
-            <label for="default-start-time">開始時間のデフォルト:</label>
+            <label for="default-start-time">開始時間:</label>
             <input type="time" id="default-start-time" onchange="autoSaveAndCalculate()">
         </div>
         <div>
-            <label for="default-end-time">終了時間のデフォルト:</label>
+            <label for="default-end-time">終了時間:</label>
             <input type="time" id="default-end-time" onchange="autoSaveAndCalculate()">
         </div>
         <div>
-            <label for="default-break-time">休憩時間のデフォルト (分):</label>
-            <input type="number" id="default-break-time" min="0" step="1" value="0" onchange="autoSaveAndCalculate()">
+            <label for="default-break-time">休憩時間(分):</label>
+            <input type="number" id="default-break-time" min="0" step="1" value="0" onchange="autoSaveAndCalculate()"style="width: 30%;">
         </div>
     </div>
     <div class="buttons">
@@ -336,21 +343,21 @@
     <div class="legend">
         <p>説明:</p>
         <ul>
-            <li><span style="border: 2px solid red; padding: 2px;">赤枠</span>: 1日の稼働時間を超えた場合</li>
-            <li><span style="border: 2px solid yellow; padding: 2px;">黄色枠</span>: 1日の稼働時間に満たない場合</li>
-            <li><span style="border: 2px solid white; padding: 2px;">白枠</span>: 未入力または0時間の場合、休日出勤した場合</li>
+            <li><span style="border: 2px solid red; padding: 2px;">赤枠</span>: 残業した日</li>
+            <li><span style="border: 2px solid yellow; padding: 2px;">黄色枠</span>: 早退した日</li>
+            <li><span style="border: 2px solid white; padding: 2px;">白枠</span>: 未入力または休暇、休日出勤した日</li>
         </ul>
     </div>
 
     <div id="popup" class="popup">
         <h3>稼働時間とメモ</h3>
-        <label for="popup-start-time">開始時間</label>
-        <input type="time" id="popup-start-time">
-        <label for="popup-end-time">終了時間</label>
-        <input type="time" id="popup-end-time">
-        <label for="popup-break-time">休憩時間 (分)</label>
-        <input type="number" id="popup-break-time" placeholder="休憩時間 (分)" min="0" step="1">
-        <textarea id="popup-note" placeholder="メモ" rows="4"></textarea>
+        <label for="popup-start-time">開始時間</label><br>
+        <input type="time" id="popup-start-time"><br>
+        <label for="popup-end-time">終了時間</label><br>
+        <input type="time" id="popup-end-time"><br>
+        <label for="popup-break-time">休憩時間 (分)</label><br>
+        <input type="number" id="popup-break-time" placeholder="休憩時間 (分)" min="0" step="1"><br>
+        <textarea id="popup-note" placeholder="メモ" rows="4"></textarea><br>
         <div class="popup-buttons">
             <button onclick="savePopupData()">保存</button>
             <button onclick="deletePopupData()">削除</button>
@@ -445,6 +452,8 @@
 
             const firstDay = new Date(currentYear, currentMonth, 1).getDay();
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const today = new Date();
+            const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === currentMonth;
 
             const headerDays = ["日", "月", "火", "水", "木", "金", "土"];
             headerDays.forEach(day => {
@@ -478,12 +487,19 @@
                     const nextMondayString = ('0' + (nextMonday.getMonth() + 1)).slice(-2) + '-' + ('0' + nextMonday.getDate()).slice(-2);
                     holidays.push(nextMondayString);
                 }
+
+                // 今日の日付を強調表示
+                if (isCurrentMonth && i === today.getDate()) {
+                    day.classList.add('today');
+                }
+
                 day.innerHTML = `<div>${i}</div><input type="number" min="0" step="0.1" maxlength="2" readonly class="work-hour-input" onclick="openPopup(${i})">`;
                 calendar.appendChild(day);
             }
 
             loadData();
         }
+
 
         function confirmAutoSetWorkHours() {
             if (confirm("稼働時間を自動設定しますか？この操作は元に戻せません。")) {
@@ -559,6 +575,7 @@
         function calculateTotal() {
             let total = 0;
             let totalOvertime = 0;
+            let daysWorked = 0; // 追加: 稼働日数のカウント
             const defaultStartTime = document.getElementById('default-start-time').value;
             const defaultEndTime = document.getElementById('default-end-time').value;
             const defaultBreakTime = parseFloat(document.getElementById('default-break-time').value) || 0;
@@ -567,17 +584,56 @@
             const dailyMaxHours = (end - start) / (1000 * 60 * 60) - (defaultBreakTime / 60);
 
             const inputs = document.querySelectorAll('.day input[type="number"]');
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            const currentDay = today.getDate();
+
             inputs.forEach(input => {
-                const hours = parseFloat(input.value) || 0;
-                total += hours;
-                if (hours > dailyMaxHours) {
-                    totalOvertime += (hours - dailyMaxHours);
+                const day = parseInt(input.parentElement.getAttribute('data-day'), 10);
+                if (day <= currentDay) {  // 未来の日付を無視
+                    const hours = parseFloat(input.value) || 0;
+                    const parent = input.parentElement;
+                    const isWeekendOrHoliday = parent.classList.contains('weekend') || parent.classList.contains('holiday');
+                    if (hours > 0 && !isWeekendOrHoliday) {
+                        total += hours;
+                        daysWorked++;
+                    }
+                    if (hours > dailyMaxHours) {
+                        totalOvertime += (hours - dailyMaxHours);
+                    }
+                    highlightInput(input);
                 }
-                highlightInput(input);
             });
+
+            let weekdaysUntilToday = 0;
+            for (let day = 1; day <= currentDay; day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                const isWeekendOrHoliday = date.getDay() == 0 || date.getDay() == 6 || holidays.includes(('0' + (currentMonth + 1)).slice(-2) + '-' + ('0' + day).slice(-2));
+                if (!isWeekendOrHoliday) {
+                    weekdaysUntilToday++;
+                }
+            }
+
+            let weekdaysInMonth = 0;
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                const isWeekendOrHoliday = date.getDay() == 0 || date.getDay() == 6 || holidays.includes(('0' + (currentMonth + 1)).slice(-2) + '-' + ('0' + day).slice(-2));
+                if (!isWeekendOrHoliday) {
+                    weekdaysInMonth++;
+                }
+            }
+
+            const averageHours = daysWorked ? (total / daysWorked) : 0;
+            const estimatedHours = averageHours * weekdaysInMonth;
+
             document.getElementById('total-hours').innerText = total.toFixed(1);
             document.getElementById('total-overtime-hours').innerText = totalOvertime.toFixed(1);
+            document.getElementById('average-hours').innerText = averageHours.toFixed(1);
+            document.getElementById('estimated-hours').innerText = estimatedHours.toFixed(1);
         }
+
 
         function calculateRevenue() {
             calculateTotal();

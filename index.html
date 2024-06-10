@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ツール一覧</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #2c3e50;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .button-container {
+            text-align: center;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 10px;
+            font-size: 18px;
+            color: white;
+            background: #3498db;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background 0.3s, transform 0.3s;
+        }
+
+        .button:hover {
+            background: #2980b9;
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 600px) {
+            .button {
+                font-size: 16px;
+                padding: 10px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="button-container">
+        <a href="./kadoujikan.html" class="button">稼働時間管理</a>
+        <a href="./shushi.html" class="button">収支管理</a>
+    </div>
+</body>
+</html>

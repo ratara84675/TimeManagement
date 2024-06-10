@@ -45,33 +45,36 @@
         .entries {
             margin-bottom: 20px;
         }
-        .entry {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-            flex-wrap: nowrap;
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        .entry input[type="text"], .entry input[type="number"] {
-            margin-right: 10px;
+        th, td {
+            padding: 5px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        th {
+            background-color: #333333;
+        }
+        td input[type="text"], td input[type="number"] {
+            width: 100%;
             padding: 5px;
             background-color: #333333;
             border: none;
             color: #ffffff;
-            flex: 1;
         }
-        .entry .remove-entry {
-            margin-right: 10px;
+        td input[type="checkbox"] {
+            margin: 0;
+            padding: 0;
+        }
+        td button {
             background-color: transparent;
             border: none;
             color: #ffffff;
             cursor: pointer;
-            flex-shrink: 0;
             font-size: 1.2em;
             padding: 0;
-            line-height: 1;
-        }
-        .entry input[type="checkbox"] {
-            flex-shrink: 0;
         }
         button {
             background-color: #444444;
@@ -79,23 +82,16 @@
             color: #ffffff;
             padding: 10px 20px;
             cursor: pointer;
+            margin-top: 10px;
         }
         h2, h3 {
             margin: 0;
+            font-size: 1em;
         }
         @media (max-width: 600px) {
             .totals {
                 flex-direction: column;
                 align-items: flex-start;
-            }
-            .entry {
-                flex-direction: row;
-                flex-wrap: nowrap;
-            }
-            .entry input[type="text"], .entry input[type="number"], .entry input[type="checkbox"], .entry .remove-entry {
-                flex: 1 1 auto;
-                margin-right: 5px;
-                margin-bottom: 5px;
             }
         }
         #unpaid-total {
@@ -118,12 +114,33 @@
     </div>
     <div class="entries">
         <h3>収入</h3>
-        <div id="income-entries"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>項目</th>
+                    <th>金額</th>
+                    <th>固定</th>
+                    <th>削除</th>
+                </tr>
+            </thead>
+            <tbody id="income-entries"></tbody>
+        </table>
         <button onclick="addEntry('income')">収入項目を追加</button>
     </div>
     <div class="entries">
         <h3>支出</h3>
-        <div id="expense-entries"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>項目</th>
+                    <th>金額</th>
+                    <th>固定</th>
+                    <th>支払済</th>
+                    <th>削除</th>
+                </tr>
+            </thead>
+            <tbody id="expense-entries"></tbody>
+        </table>
         <button onclick="addEntry('expense')">支出項目を追加</button>
     </div>
     <div id="unpaid-total">未支払: ¥<span>0</span></div>
@@ -157,23 +174,24 @@
 
         function addEntry(type) {
             const container = document.getElementById(`${type}-entries`);
-            const entry = document.createElement('div');
-            entry.className = 'entry';
+            const row = document.createElement('tr');
             if (type === 'income') {
-                entry.innerHTML = `
-                    <input type="text" placeholder="項目" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')">
-                    <input type="number" placeholder="金額" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')">
-                    <button class="remove-entry" onclick="removeEntry(this)">×</button>
+                row.innerHTML = `
+                    <td><input type="text" placeholder="項目" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')"></td>
+                    <td><input type="number" placeholder="金額" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')"></td>
+                    <td><input type="checkbox" class="fixed-cost" onchange="updateTotals()"></td>
+                    <td><button class="remove-entry" onclick="removeEntry(this)">×</button></td>
                 `;
             } else {
-                entry.innerHTML = `
-                    <input type="text" placeholder="項目" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')">
-                    <input type="number" placeholder="金額" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')">
-                    <input type="checkbox" onchange="updateTotals()">
-                    <button class="remove-entry" onclick="removeEntry(this)">×</button>
+                row.innerHTML = `
+                    <td><input type="text" placeholder="項目" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')"></td>
+                    <td><input type="number" placeholder="金額" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')"></td>
+                    <td><input type="checkbox" class="fixed-cost" onchange="updateTotals()"></td>
+                    <td><input type="checkbox" onchange="updateTotals()"></td>
+                    <td><button class="remove-entry" onclick="removeEntry(this)">×</button></td>
                 `;
             }
-            container.appendChild(entry);
+            container.appendChild(row);
             saveEntries();
         }
 
@@ -182,20 +200,22 @@
         }
 
         function removeEntry(button) {
-            button.parentElement.remove();
+            button.parentElement.parentElement.remove();
             saveEntries();
             updateTotals();
         }
 
         function saveEntries() {
-            const incomeEntries = Array.from(document.getElementById('income-entries').children).map(entry => ({
-                item: entry.children[0].value,
-                amount: entry.children[1].value
+            const incomeEntries = Array.from(document.getElementById('income-entries').children).map(row => ({
+                item: row.children[0].children[0].value,
+                amount: row.children[1].children[0].value,
+                fixed: row.children[2].children[0].checked
             }));
-            const expenseEntries = Array.from(document.getElementById('expense-entries').children).map(entry => ({
-                item: entry.children[0].value,
-                amount: entry.children[1].value,
-                paid: entry.children[2].checked
+            const expenseEntries = Array.from(document.getElementById('expense-entries').children).map(row => ({
+                item: row.children[0].children[0].value,
+                amount: row.children[1].children[0].value,
+                fixed: row.children[2].children[0].checked,
+                paid: row.children[3].children[0].checked
             }));
             const data = {
                 income: incomeEntries,
@@ -207,46 +227,63 @@
         function loadEntries() {
             document.getElementById('income-entries').innerHTML = '';
             document.getElementById('expense-entries').innerHTML = '';
+            const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+            const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+            const previousData = JSON.parse(localStorage.getItem(`${previousYear}-${previousMonth}`)) || { income: [], expense: [] };
             const data = JSON.parse(localStorage.getItem(`${currentYear}-${currentMonth}`)) || { income: [], expense: [] };
-            for (let i = 0; i < 3; i++) {
-                addEntryFromData('income', data.income[i] || { item: '', amount: '' });
-            }
-            for (let i = 0; i < 5; i++) {
-                addEntryFromData('expense', data.expense[i] || { item: '', amount: '', paid: false });
-            }
-            for (let i = 3; i < data.income.length; i++) addEntryFromData('income', data.income[i]);
-            for (let i = 5; i < data.expense.length; i++) addEntryFromData('expense', data.expense[i]);
+
+            previousData.income.forEach(entry => addEntryFromData('income', entry, data));
+            previousData.expense.forEach(entry => addEntryFromData('expense', entry, data));
+
             updateTotals();
         }
 
-        function addEntryFromData(type, entryData) {
+        function addEntryFromData(type, entryData, currentData) {
             const container = document.getElementById(`${type}-entries`);
-            const entry = document.createElement('div');
-            entry.className = 'entry';
+            const row = document.createElement('tr');
+            const isFixed = entryData.fixed;
+
             if (type === 'income') {
-                entry.innerHTML = `
-                    <input type="text" placeholder="項目" value="${entryData.item}" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')">
-                    <input type="number" placeholder="金額" value="${entryData.amount}" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')">
-                    <button class="remove-entry" onclick="removeEntry(this)">×</button>
+                row.innerHTML = `
+                    <td><input type="text" placeholder="項目" value="${entryData.item}" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')"></td>
+                    <td><input type="number" placeholder="金額" value="${entryData.amount}" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')"></td>
+                    <td><input type="checkbox" class="fixed-cost" ${isFixed ? 'checked' : ''} onchange="updateTotals()"></td>
+                    <td><button class="remove-entry" onclick="removeEntry(this)">×</button></td>
                 `;
+                if (isFixed) {
+                    const existingEntry = currentData.income.find(e => e.item === entryData.item);
+                    if (!existingEntry) {
+                        container.appendChild(row);
+                    }
+                } else {
+                    container.appendChild(row);
+                }
             } else {
-                entry.innerHTML = `
-                    <input type="text" placeholder="項目" value="${entryData.item}" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')">
-                    <input type="number" placeholder="金額" value="${entryData.amount}" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')">
-                    <input type="checkbox" ${entryData.paid ? 'checked' : ''} onchange="updateTotals()">
-                    <button class="remove-entry" onclick="removeEntry(this)">×</button>
+                row.innerHTML = `
+                    <td><input type="text" placeholder="項目" value="${entryData.item}" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')"></td>
+                    <td><input type="number" placeholder="金額" value="${entryData.amount}" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')"></td>
+                    <td><input type="checkbox" class="fixed-cost" ${isFixed ? 'checked' : ''} onchange="updateTotals()"></td>
+                    <td><input type="checkbox" ${entryData.paid ? 'checked' : ''} onchange="updateTotals()"></td>
+                    <td><button class="remove-entry" onclick="removeEntry(this)">×</button></td>
                 `;
+                if (isFixed) {
+                    const existingEntry = currentData.expense.find(e => e.item === entryData.item);
+                    if (!existingEntry) {
+                        container.appendChild(row);
+                    }
+                } else {
+                    container.appendChild(row);
+                }
             }
-            container.appendChild(entry);
         }
 
         function updateTotals() {
             const incomeTotal = Array.from(document.getElementById('income-entries').children)
-                .reduce((total, entry) => total + Number(entry.children[1].value || 0), 0);
+                .reduce((total, row) => total + Number(row.children[1].children[0].value || 0), 0);
             const expenseTotal = Array.from(document.getElementById('expense-entries').children)
-                .reduce((total, entry) => total + Number(entry.children[1].value || 0), 0);
+                .reduce((total, row) => total + Number(row.children[1].children[0].value || 0), 0);
             const unpaidTotal = Array.from(document.getElementById('expense-entries').children)
-                .reduce((total, entry) => entry.children[2].checked ? total : total + Number(entry.children[1].value || 0), 0);
+                .reduce((total, row) => row.children[3].children[0].checked ? total : total + Number(row.children[1].children[0].value || 0), 0);
             const balanceTotal = incomeTotal - expenseTotal;
 
             document.getElementById('income-total').textContent = incomeTotal.toLocaleString();

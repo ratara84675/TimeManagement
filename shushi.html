@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>収支管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #121212;
+            color: #ffffff;
+        }
+        h1 {
+            text-align: center;
+        }
+        .month-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .triangle-left {
+            width: 0;
+            height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-right: 10px solid #ffffff;
+            cursor: pointer;
+        }
+        .triangle-right {
+            width: 0;
+            height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-left: 10px solid #ffffff;
+            cursor: pointer;
+        }
+        .totals {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+        .entries {
+            margin-bottom: 20px;
+        }
+        .entry {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            flex-wrap: nowrap;
+        }
+        .entry input[type="text"], .entry input[type="number"] {
+            margin-right: 10px;
+            padding: 5px;
+            background-color: #333333;
+            border: none;
+            color: #ffffff;
+            flex: 1;
+        }
+        .entry .remove-entry {
+            margin-right: 10px;
+            background-color: transparent;
+            border: none;
+            color: #ffffff;
+            cursor: pointer;
+            flex-shrink: 0;
+            font-size: 1.2em;
+            padding: 0;
+            line-height: 1;
+        }
+        .entry input[type="checkbox"] {
+            flex-shrink: 0;
+        }
+        button {
+            background-color: #444444;
+            border: none;
+            color: #ffffff;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        h2, h3 {
+            margin: 0;
+        }
+        @media (max-width: 600px) {
+            .totals {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .entry {
+                flex-direction: row;
+                flex-wrap: nowrap;
+            }
+            .entry input[type="text"], .entry input[type="number"], .entry input[type="checkbox"], .entry .remove-entry {
+                flex: 1 1 auto;
+                margin-right: 5px;
+                margin-bottom: 5px;
+            }
+        }
+        #unpaid-total {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>収支管理</h1>
+    <div class="month-navigation">
+        <div class="triangle-left" onclick="changeMonth(-1)"></div>
+        <h2 id="current-month"></h2>
+        <div class="triangle-right" onclick="changeMonth(1)"></div>
+    </div>
+    <div class="totals">
+        <div>収入合計: ¥<span id="income-total">0</span></div>
+        <div>支出合計: ¥<span id="expense-total">0</span></div>
+        <div>収支: ¥<span id="balance-total">0</span></div>
+    </div>
+    <div class="entries">
+        <h3>収入</h3>
+        <div id="income-entries"></div>
+        <button onclick="addEntry('income')">収入項目を追加</button>
+    </div>
+    <div class="entries">
+        <h3>支出</h3>
+        <div id="expense-entries"></div>
+        <button onclick="addEntry('expense')">支出項目を追加</button>
+    </div>
+    <div id="unpaid-total">未支払: ¥<span>0</span></div>
+    <script>
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('current-month').textContent = getMonthString(currentYear, currentMonth);
+            loadEntries();
+            updateTotals();
+        });
+
+        function changeMonth(change) {
+            currentMonth += change;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            } else if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            document.getElementById('current-month').textContent = getMonthString(currentYear, currentMonth);
+            loadEntries();
+            updateTotals();
+        }
+
+        function getMonthString(year, month) {
+            return `${year}年 ${month + 1}月`;
+        }
+
+        function addEntry(type) {
+            const container = document.getElementById(`${type}-entries`);
+            const entry = document.createElement('div');
+            entry.className = 'entry';
+            if (type === 'income') {
+                entry.innerHTML = `
+                    <input type="text" placeholder="項目" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')">
+                    <input type="number" placeholder="金額" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')">
+                    <button class="remove-entry" onclick="removeEntry(this)">×</button>
+                `;
+            } else {
+                entry.innerHTML = `
+                    <input type="text" placeholder="項目" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')">
+                    <input type="number" placeholder="金額" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')">
+                    <input type="checkbox" onchange="updateTotals()">
+                    <button class="remove-entry" onclick="removeEntry(this)">×</button>
+                `;
+            }
+            container.appendChild(entry);
+            saveEntries();
+        }
+
+        function setInputMode(element, mode) {
+            element.setAttribute('inputmode', mode);
+        }
+
+        function removeEntry(button) {
+            button.parentElement.remove();
+            saveEntries();
+            updateTotals();
+        }
+
+        function saveEntries() {
+            const incomeEntries = Array.from(document.getElementById('income-entries').children).map(entry => ({
+                item: entry.children[0].value,
+                amount: entry.children[1].value
+            }));
+            const expenseEntries = Array.from(document.getElementById('expense-entries').children).map(entry => ({
+                item: entry.children[0].value,
+                amount: entry.children[1].value,
+                paid: entry.children[2].checked
+            }));
+            const data = {
+                income: incomeEntries,
+                expense: expenseEntries
+            };
+            localStorage.setItem(`${currentYear}-${currentMonth}`, JSON.stringify(data));
+        }
+
+        function loadEntries() {
+            document.getElementById('income-entries').innerHTML = '';
+            document.getElementById('expense-entries').innerHTML = '';
+            const data = JSON.parse(localStorage.getItem(`${currentYear}-${currentMonth}`)) || { income: [], expense: [] };
+            for (let i = 0; i < 3; i++) {
+                addEntryFromData('income', data.income[i] || { item: '', amount: '' });
+            }
+            for (let i = 0; i < 5; i++) {
+                addEntryFromData('expense', data.expense[i] || { item: '', amount: '', paid: false });
+            }
+            for (let i = 3; i < data.income.length; i++) addEntryFromData('income', data.income[i]);
+            for (let i = 5; i < data.expense.length; i++) addEntryFromData('expense', data.expense[i]);
+            updateTotals();
+        }
+
+        function addEntryFromData(type, entryData) {
+            const container = document.getElementById(`${type}-entries`);
+            const entry = document.createElement('div');
+            entry.className = 'entry';
+            if (type === 'income') {
+                entry.innerHTML = `
+                    <input type="text" placeholder="項目" value="${entryData.item}" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')">
+                    <input type="number" placeholder="金額" value="${entryData.amount}" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')">
+                    <button class="remove-entry" onclick="removeEntry(this)">×</button>
+                `;
+            } else {
+                entry.innerHTML = `
+                    <input type="text" placeholder="項目" value="${entryData.item}" onfocus="setInputMode(this, 'text')" onblur="setInputMode(this, 'text')">
+                    <input type="number" placeholder="金額" value="${entryData.amount}" oninput="updateTotals()" onfocus="setInputMode(this, 'decimal')" onblur="setInputMode(this, 'text')">
+                    <input type="checkbox" ${entryData.paid ? 'checked' : ''} onchange="updateTotals()">
+                    <button class="remove-entry" onclick="removeEntry(this)">×</button>
+                `;
+            }
+            container.appendChild(entry);
+        }
+
+        function updateTotals() {
+            const incomeTotal = Array.from(document.getElementById('income-entries').children)
+                .reduce((total, entry) => total + Number(entry.children[1].value || 0), 0);
+            const expenseTotal = Array.from(document.getElementById('expense-entries').children)
+                .reduce((total, entry) => total + Number(entry.children[1].value || 0), 0);
+            const unpaidTotal = Array.from(document.getElementById('expense-entries').children)
+                .reduce((total, entry) => entry.children[2].checked ? total : total + Number(entry.children[1].value || 0), 0);
+            const balanceTotal = incomeTotal - expenseTotal;
+
+            document.getElementById('income-total').textContent = incomeTotal.toLocaleString();
+            document.getElementById('expense-total').textContent = expenseTotal.toLocaleString();
+            document.getElementById('balance-total').textContent = balanceTotal.toLocaleString();
+            document.getElementById('unpaid-total').children[0].textContent = unpaidTotal.toLocaleString();
+
+            saveEntries();
+        }
+    </script>
+</body>
+</html>

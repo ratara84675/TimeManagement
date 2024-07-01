@@ -302,11 +302,6 @@
         <div class="result">合計稼働時間: <span id="total-hours">0</span>時間</div>
         <div class="result">合計残業時間: <span id="total-overtime-hours">0</span>時間</div>
         <div class="result">平均稼働時間: <span id="average-hours">0</span>時間</div>
-        <br>
-    
-        <div class="result">合計稼働時間見込み: <span id="estimated-hours">0</span>時間</div>
-        <div class="result">売上見込み (円): <span id="estimated-revenue">0</span></div>
-        <div class="result">給与見込み (円): <span id="estimated-salary">0</span></div>
     </div>
     <div class="inputs">
         <div>
@@ -600,7 +595,6 @@
 
             inputs.forEach(input => {
                 const day = parseInt(input.parentElement.getAttribute('data-day'), 10);
-                if (day <= currentDay) {  // 未来の日付を無視
                     const hours = parseFloat(input.value) || 0;
                     const parent = input.parentElement;
                     const isWeekendOrHoliday = parent.classList.contains('weekend') || parent.classList.contains('holiday');
@@ -612,7 +606,6 @@
                         totalOvertime += (hours - dailyMaxHours);
                     }
                     highlightInput(input);
-                }
             });
 
             let weekdaysUntilToday = 0;
@@ -640,7 +633,6 @@
             document.getElementById('total-hours').innerText = total.toFixed(1);
             document.getElementById('total-overtime-hours').innerText = totalOvertime.toFixed(1);
             document.getElementById('average-hours').innerText = averageHours.toFixed(1);
-            document.getElementById('estimated-hours').innerText = estimatedHours.toFixed(1);
 
             // 月の売上見込みの計算
             const monthlyRate = parseFloat(document.getElementById('monthly-rate').value) || 0;
@@ -653,12 +645,6 @@
                 const excessHours = estimatedHours - maxHours;
                 estimatedRevenue += hourlyRate * excessHours;
             }
-
-            document.getElementById('estimated-revenue').innerText = estimatedRevenue.toFixed(0);
-
-            // 給与見込みの計算
-            const estimatedSalary = estimatedRevenue * (coefficient / 100);
-            document.getElementById('estimated-salary').innerText = estimatedSalary.toFixed(0);
         }
 
 

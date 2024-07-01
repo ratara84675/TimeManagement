@@ -598,7 +598,7 @@
                     const hours = parseFloat(input.value) || 0;
                     const parent = input.parentElement;
                     const isWeekendOrHoliday = parent.classList.contains('weekend') || parent.classList.contains('holiday');
-                    if (hours > 0 && !isWeekendOrHoliday) {
+                    if (hours > 0) {
                         total += hours;
                         daysWorked++;
                     }
